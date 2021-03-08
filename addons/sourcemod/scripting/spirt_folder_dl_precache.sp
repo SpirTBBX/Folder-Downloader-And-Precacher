@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "SpirT"
-#define PLUGIN_VERSION "1.0"
+#define PLUGIN_VERSION "1.0.1"
 
 char configFile[256];
 
@@ -153,7 +153,7 @@ void SetupFile(const char[] file)
 		else if(StrEqual(extension, "mp3") || StrEqual(extension, "wav") || StrEqual(extension, "m4a"))
 		{
 			AddFileToDownloadsTable(file);
-			PrecacheDecal(file, true);
+			PrecacheSound(file, true);
 			PrintToServer("[SpirT - Downloader & Precacher] Sound added to downloads table and precached: %s", file);
 		}
 		else if(StrEqual(extension, "bsp") || StrEqual(extension, "nav"))
