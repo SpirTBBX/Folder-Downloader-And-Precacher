@@ -1,0 +1,2 @@
+sound/SpirT/a_file.mp3
+models/modelfolder/whatever/v_mymodel.mdl
