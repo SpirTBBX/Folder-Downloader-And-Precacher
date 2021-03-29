@@ -3,48 +3,18 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "SpirT"
-#define PLUGIN_VERSION "1.1.0"
-
-char configFile[256];
-char filesConfig[256];
-
-char fileExtensions[][] = 
-{
-	"mdl", "phy", "vtx", "vvd", "pcf",
-	"vmt", "vtf", "png", "svg",
-	"mp3", "wav", "m4a",
-	"bsp", "nav"
-};
-
-/*char soundExtensions[][] =
-{
-	"mp3", "wav", "m4a",
-};
-
-char modelExtensions[][] =
-{
-	"mdl", "phy", "vtx", "vvd",
-};
-
-char materialsExtensions[][] =
-{
-	"vmt", "vtf", "png", "svg",
-};
-
-char mapExtensions[][] =
-{
-	"bsp", "nav"
-};*/
+#define PLUGIN_VERSION "1.1.0-fix"
 
 #include <sourcemod>
 #include <sdktools>
 
-#pragma newdecls required
+char folderFile[PLATFORM_MAX_PATH];
+char filesFile[PLATFORM_MAX_PATH];
 
-ConVar g_supportType, g_download, g_precache;
-bool folderSupport = false;
-bool downloadEnabled = false;
-bool precacheEnabled = false;
+ConVar g_downloads, g_precache, g_looktype;
+bool downloads, precache, looktype;
+
+#pragma newdecls required
 
 public Plugin myinfo = 
 {
@@ -57,228 +27,127 @@ public Plugin myinfo =
 
 public void OnPluginStart()
 {
-	BuildPath(Path_SM, configFile, sizeof(configFile), "configs/SpirT/Folder-Downloader-Precacher/folders.txt");
-	BuildPath(Path_SM, filesConfig, sizeof(filesConfig), "configs/SpirT/Folder-Downloader-Precacher/files.txt");
+	BuildPath(Path_SM, folderFile, sizeof(folderFile), "configs/SpirT/Folder-Downloader-Precacher/folders.txt");
+	BuildPath(Path_SM, filesFile, sizeof(filesFile), "configs/SpirT/Folder-Downloader-Precacher/files.txt");
 	
-	if(!FileExists(configFile) || !FileExists(filesConfig))
+	if(!FileExists(folderFile) || !FileExists(filesFile))
 	{
-		SetFailState("[SpirT - Downloader & Precacher] Could not a config file. Make sure that both '%s' and '%s' exist.", configFile, filesConfig);
-	}
-	else
-	{
-		PrintToServer("[SpirT - Downloader & Precacher] Config files loaded successfully.");
+		SetFailState("Could not find required file '%s'", folderFile);
+		LogError("[SpirT - DL PRECACHE] Could not find required file '%s'", folderFile);
 	}
 	
-	RegServerCmd("sm_dl_reload", Command_Refresh);
-	g_supportType = CreateConVar("spirt_dl_support_type", "1", "(1 - enables | 0 - disabled) 1 - Just specify folders at folders.txt and it would add files automatically. 0 - Specify all files manually at files.txt");
-	g_download = CreateConVar("spirt_dl_download", "1", "(1 - enables | 0 - disabled) 1 - Enables adding files to the downloads table. 0 - Disables adding files to the downloads table");
+	g_looktype = CreateConVar("spirt_dl_support_type", "1", "(1 - enables | 0 - disabled) 1 - Just specify folders at folders.txt and it would add files automatically. 0 - Specify all files manually at files.txt");
+	g_downloads = CreateConVar("spirt_dl_download", "1", "(1 - enables | 0 - disabled) 1 - Enables adding files to the downloads table. 0 - Disables adding files to the downloads table");
 	g_precache = CreateConVar("spirt_dl_precache", "1", "(1 - enables | 0 - disabled) 1 - Enables file precaching. 0 - Disables file precaching");
-	AutoExecConfig(true, "folder-downloader-precacher", "SpirT");
+	AutoExecConfig(true, "spirt.dl");
 }
 
 public void OnConfigsExecuted()
 {
-	if(GetConVarInt(g_supportType) == 1)
+	downloads = GetConVarBool(g_downloads);
+	precache = GetConVarBool(g_precache);
+	looktype = GetConVarBool(g_looktype);
+	
+	if(!downloads && !precache)
 	{
-		folderSupport = true;
+		SetFailState("Both downloads and precache are disabled. Plugin will quit");
+		LogError("[SpirT - DL PRECACHE] Both downloads and precache are disabled. Plugin will quit");
 	}
 	else
 	{
-		folderSupport = false;
-	}
-	
-	if(GetConVarInt(g_download) == 1)
-	{
-		downloadEnabled = true;
-	}
-	else
-	{
-		downloadEnabled = false;
-	}
-	
-	if(GetConVarInt(g_precache) == 1)
-	{
-		precacheEnabled = true;
-	}
-	else
-	{
-		precacheEnabled = false;
-	}
-	
-	PrintToServer("Precaching: %d      Downloading: %d           SupportType: %d", precacheEnabled, downloadEnabled, folderSupport);
-	CheckConfig();
-}
-
-public Action Command_Refresh(int args)
-{
-	if(folderSupport)
-	{
-		LoadFolderFile(configFile);
-	}
-	else
-	{
-		LoadFilesFile(filesConfig);
+		if(looktype)
+		{
+			FolderLoop();
+		}
+		else
+		{
+			FileLoop();
+		}
 	}
 }
 
-void CheckConfig()
+void FolderLoop()
 {
-	if(folderSupport)
+	File file = OpenFile(folderFile, "r");
+	char fileLine[128];
+	while(ReadFileLine(file, fileLine, sizeof(fileLine)))
 	{
-		LoadFolderFile(configFile);
-	}
-	else
-	{
-		LoadFilesFile(filesConfig);
-	}
-}
-
-
-
-void LoadFilesFile(const char[] file)
-{
-	File handle = OpenFile(file, "r+");
-	char filePath[256];
-	while(ReadFileLine(handle, filePath, sizeof(filePath)))
-	{
-		TrimString(filePath);
-		if(!FileExists(filePath))
-		{
-			PrintToServer("[SpirT - Downloader & Precacher] File '%s' does not exist.", filePath);
-			continue;
-		}
-		
-		PrintToServer("[SpirT - Downloader & Precacher] File '%s' is being added to the downloads tabled and precached", filePath);
-		SetupFile(filePath);
+		TrimString(fileLine);
+		LookPathType(fileLine);
 	}
 	
-	CloseHandle(handle);
-	return;
+	CloseHandle(file);
 }
 
-void LoadFolderFile(const char[] file)
+void FileLoop()
 {
-	File handle = OpenFile(file, "r+");
-	char folderPath[256];
-	while(ReadFileLine(handle, folderPath, sizeof(folderPath)))
+	File file = OpenFile(filesFile, "r");
+	char fileLine[128];
+	while(ReadFileLine(file, fileLine, sizeof(fileLine)))
 	{
-		TrimString(folderPath);
-		if(!DirExists(folderPath))
+		TrimString(fileLine);
+		if(FileExists(fileLine))
 		{
-			PrintToServer("[SpirT - Downloader & Precacher] Folder '%s' does not exist.", folderPath);
-			continue;
+			PrepareFile(fileLine);
 		}
-		
-		PrintToServer("[SpirT - Downloader & Precacher] Folder '%s' is being added to the downloads tabled and precached", folderPath);
-		SetupFolder(folderPath);
 	}
 	
-	CloseHandle(handle);
-	return;
+	CloseHandle(file);
 }
 
-void SetupFolder(const char[] folder)
+void LookPathType(const char[] path)
 {
-	if(DirExists(folder))
-	{
-		DirectoryListing dir = OpenDirectory(folder);
-		char buffer[PLATFORM_MAX_PATH];
-		FileType fileType = FileType_Unknown;
-		
-		while(ReadDirEntry(dir, buffer, sizeof(buffer), fileType))
-		{
-			if (!StrEqual(buffer, "") && !StrEqual(buffer, ".") && !StrEqual(buffer, ".."))
-			{
-				Format(buffer, sizeof(buffer), "%s/%s", folder, buffer);
-				if(fileType == FileType_File)
-				{
-					if(FileExists(buffer, true))
-					{
-						SetupFile(buffer);
-					}
-				}
-				else if(fileType == FileType_Directory)
-				{
-					SetupFolder(buffer);
-				}
-			}
-		}
-		
-		CloseHandle(dir);
-	}
-	else
-	{
-		PrintToServer("[SpirT - Downloader & Precacher] Folder '%s' not valid", folder);
-	}
-}
-
-void SetupFile(const char[] file)
-{
-	char extension[PLATFORM_MAX_PATH];
-	GetFileExtension(file, extension, sizeof(extension));
+	DirectoryListing dir = OpenDirectory(path);
+	char buffer[PLATFORM_MAX_PATH];
+	FileType fileType = FileType_Unknown;
 	
-	for (int i = 0; i < sizeof(fileExtensions[]); i++)
+	while(ReadDirEntry(dir, buffer, sizeof(buffer), fileType))
 	{
-		if(StrEqual(extension, "mdl") || StrEqual(extension, "phy") || StrEqual(extension, "vtx") || StrEqual(extension, "vvd"))
+		if (!StrEqual(buffer, ".") && !StrEqual(buffer, "..") && !StrEqual(buffer, ""))
 		{
-			if(downloadEnabled)
+			char newPath[PLATFORM_MAX_PATH];
+			Format(newPath, sizeof(newPath), "%s/%s", path, buffer);
+			if(fileType == FileType_File)
 			{
-				AddFileToDownloadsTable(file);
-				PrintToServer("[SpirT - Downloader & Precacher] Model added to downloads table: %s", file);
+				PrepareFile(newPath);
 			}
-			if(precacheEnabled)
+			else if(fileType == FileType_Directory)
 			{
-				PrecacheModel(file, true);
-				PrintToServer("[SpirT - Downloader & Precacher] Model precached: %s", file);
+				LookPathType(newPath);
 			}
 		}
-		else if(StrEqual(extension, "vmt") || StrEqual(extension, "vtf") || StrEqual(extension, "png") || StrEqual(extension, "svg"))
-		{
-			if(downloadEnabled)
-			{
-				AddFileToDownloadsTable(file);
-				PrintToServer("[SpirT - Downloader & Precacher] Material added to downloads table: %s", file);
-			}
-			if(precacheEnabled)
-			{
-				PrecacheDecal(file, true);
-				PrintToServer("[SpirT - Downloader & Precacher] Material precached: %s", file);
-			}
-		}
-		else if(StrEqual(extension, "mp3") || StrEqual(extension, "wav") || StrEqual(extension, "m4a"))
-		{
-			if(downloadEnabled)
-			{
-				AddFileToDownloadsTable(file);
-				PrintToServer("[SpirT - Downloader & Precacher] Sound added to downloads table: %s", file);
-			}
-			if(precacheEnabled)
-			{
-				PrecacheSound(file, true);
-				PrintToServer("[SpirT - Downloader & Precacher] Sound precached: %s", file);
-			}
-		}
-		else if(StrEqual(extension, "bsp") || StrEqual(extension, "nav"))
-		{
-			if(downloadEnabled)
-			{
-				AddFileToDownloadsTable(file);
-				PrintToServer("[SpirT - Downloader & Precacher] Map added to downloads table: %s", file);
-			}
-		}
-		else if(StrEqual(extension, "pcf"))
-		{
-			if(downloadEnabled)
-			{
-				AddFileToDownloadsTable(file);
-				PrintToServer("[SpirT - Downloader & Precacher] Particle added to downloads table: %s", file);
-			}
-			if(precacheEnabled)
-			{
-				PrecacheGeneric(file, true);
-				PrintToServer("[SpirT - Downloader & Precacher] Particle precached: %s", file);
-			}
-		}
+	}
+	
+	CloseHandle(dir);
+}
+
+void PrepareFile(const char[] path)
+{
+	char fileExtension[PLATFORM_MAX_PATH];
+	GetFileExtension(path, fileExtension, sizeof(fileExtension));
+	if(StrEqual(fileExtension, "mdl") || StrEqual(fileExtension, "phy") || StrEqual(fileExtension, "vtx") || StrEqual(fileExtension, "vvd"))
+	{
+		CheckDownload(path);
+		CheckPrecache(path, "model");
+	}
+	else if(StrEqual(fileExtension, "vmt") || StrEqual(fileExtension, "vtx") || StrEqual(fileExtension, "png") || StrEqual(fileExtension, "svg"))
+	{
+		CheckDownload(path);
+		CheckPrecache(path, "materials");
+	}
+	else if(StrEqual(fileExtension, "mp3") || StrEqual(fileExtension, "wav") || StrEqual(fileExtension, "m4a"))
+	{
+		CheckDownload(path);
+		CheckPrecache(path, "sound");
+	}
+	else if(StrEqual(fileExtension, "bsp") || StrEqual(fileExtension, "nav") || StrEqual(fileExtension, "ani"))
+	{
+		CheckDownload(path);
+	}
+	else if(StrEqual(fileExtension, "pcf"))
+	{
+		CheckDownload(path);
+		CheckPrecache(path, "generic");
 	}
 }
 
@@ -292,4 +161,40 @@ bool GetFileExtension(const char[] filepath, char[] filetype, int length)
 	}
 	strcopy(filetype, length, filepath[loc + 1]);
 	return true;
+}
+
+void CheckDownload(const char[] path)
+{
+	if(downloads)
+	{
+		AddFileToDownloadsTable(path);
+		PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to the downloads table", path);
+	}
+}
+
+void CheckPrecache(const char[] file, const char[] precacheType)
+{
+	if(precache)
+	{
+		if(StrEqual(precacheType, "model"))
+		{
+			PrecacheModel(file, true);
+			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to models precache table", file);
+		}
+		else if(StrEqual(precacheType, "materials"))
+		{
+			PrecacheDecal(file, true);
+			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to materials/decal precache table", file);
+		}
+		else if(StrEqual(precacheType, "sound"))
+		{
+			PrecacheSound(file, true);
+			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to sound precache table", file);
+		}
+		else if(StrEqual(precacheType, "generic"))
+		{
+			PrecacheGeneric(file, true);
+			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to generic precache table", file);
+		}
+	}
 }
