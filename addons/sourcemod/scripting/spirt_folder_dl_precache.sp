@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "SpirT"
-#define PLUGIN_VERSION "1.1.0-fix"
+#define PLUGIN_VERSION "1.1.1"
 
 #include <sourcemod>
 #include <sdktools>
@@ -130,7 +130,7 @@ void PrepareFile(const char[] path)
 		CheckDownload(path);
 		CheckPrecache(path, "model");
 	}
-	else if(StrEqual(fileExtension, "vmt") || StrEqual(fileExtension, "vtx") || StrEqual(fileExtension, "png") || StrEqual(fileExtension, "svg"))
+	else if(StrEqual(fileExtension, "vmt") || StrEqual(fileExtension, "vtf") || StrEqual(fileExtension, "png") || StrEqual(fileExtension, "svg"))
 	{
 		CheckDownload(path);
 		CheckPrecache(path, "materials");
