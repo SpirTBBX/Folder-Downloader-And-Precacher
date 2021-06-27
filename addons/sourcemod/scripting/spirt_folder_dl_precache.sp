@@ -3,7 +3,7 @@
 #define DEBUG
 
 #define PLUGIN_AUTHOR "SpirT"
-#define PLUGIN_VERSION "1.1.1"
+#define PLUGIN_VERSION "1.1.2"
 
 #include <sourcemod>
 #include <sdktools>
@@ -18,10 +18,10 @@ bool downloads, precache, looktype;
 
 public Plugin myinfo = 
 {
-	name = "[SpirT] Folder Downloader and Precacher",
-	author = PLUGIN_AUTHOR,
-	description = "Adds a folder to the downloads table. All files will be precached",
-	version = PLUGIN_VERSION,
+	name = "[SpirT] Folder Downloader and Precacher", 
+	author = PLUGIN_AUTHOR, 
+	description = "Adds a folder to the downloads table. All files will be precached", 
+	version = PLUGIN_VERSION, 
 	url = ""
 };
 
@@ -30,7 +30,7 @@ public void OnPluginStart()
 	BuildPath(Path_SM, folderFile, sizeof(folderFile), "configs/SpirT/Folder-Downloader-Precacher/folders.txt");
 	BuildPath(Path_SM, filesFile, sizeof(filesFile), "configs/SpirT/Folder-Downloader-Precacher/files.txt");
 	
-	if(!FileExists(folderFile) || !FileExists(filesFile))
+	if (!FileExists(folderFile) || !FileExists(filesFile))
 	{
 		SetFailState("Could not find required file '%s'", folderFile);
 		LogError("[SpirT - DL PRECACHE] Could not find required file '%s'", folderFile);
@@ -48,14 +48,14 @@ public void OnConfigsExecuted()
 	precache = GetConVarBool(g_precache);
 	looktype = GetConVarBool(g_looktype);
 	
-	if(!downloads && !precache)
+	if (!downloads && !precache)
 	{
 		SetFailState("Both downloads and precache are disabled. Plugin will quit");
 		LogError("[SpirT - DL PRECACHE] Both downloads and precache are disabled. Plugin will quit");
 	}
 	else
 	{
-		if(looktype)
+		if (looktype)
 		{
 			FolderLoop();
 		}
@@ -70,7 +70,7 @@ void FolderLoop()
 {
 	File file = OpenFile(folderFile, "r");
 	char fileLine[128];
-	while(ReadFileLine(file, fileLine, sizeof(fileLine)))
+	while (ReadFileLine(file, fileLine, sizeof(fileLine)))
 	{
 		TrimString(fileLine);
 		LookPathType(fileLine);
@@ -83,10 +83,10 @@ void FileLoop()
 {
 	File file = OpenFile(filesFile, "r");
 	char fileLine[128];
-	while(ReadFileLine(file, fileLine, sizeof(fileLine)))
+	while (ReadFileLine(file, fileLine, sizeof(fileLine)))
 	{
 		TrimString(fileLine);
-		if(FileExists(fileLine))
+		if (FileExists(fileLine))
 		{
 			PrepareFile(fileLine);
 		}
@@ -101,50 +101,53 @@ void LookPathType(const char[] path)
 	char buffer[PLATFORM_MAX_PATH];
 	FileType fileType = FileType_Unknown;
 	
-	while(ReadDirEntry(dir, buffer, sizeof(buffer), fileType))
+	if (dir != null)
 	{
-		if (!StrEqual(buffer, ".") && !StrEqual(buffer, "..") && !StrEqual(buffer, ""))
+		while (ReadDirEntry(dir, buffer, sizeof(buffer), fileType))
 		{
-			char newPath[PLATFORM_MAX_PATH];
-			Format(newPath, sizeof(newPath), "%s/%s", path, buffer);
-			if(fileType == FileType_File)
+			if (!StrEqual(buffer, ".") && !StrEqual(buffer, "..") && !StrEqual(buffer, ""))
 			{
-				PrepareFile(newPath);
-			}
-			else if(fileType == FileType_Directory)
-			{
-				LookPathType(newPath);
+				char newPath[PLATFORM_MAX_PATH];
+				Format(newPath, sizeof(newPath), "%s/%s", path, buffer);
+				if (fileType == FileType_File)
+				{
+					PrepareFile(newPath);
+				}
+				else if (fileType == FileType_Directory)
+				{
+					LookPathType(newPath);
+				}
 			}
 		}
+		
+		CloseHandle(dir);
 	}
-	
-	CloseHandle(dir);
 }
 
 void PrepareFile(const char[] path)
 {
 	char fileExtension[PLATFORM_MAX_PATH];
 	GetFileExtension(path, fileExtension, sizeof(fileExtension));
-	if(StrEqual(fileExtension, "mdl") || StrEqual(fileExtension, "phy") || StrEqual(fileExtension, "vtx") || StrEqual(fileExtension, "vvd"))
+	if (StrEqual(fileExtension, "mdl") || StrEqual(fileExtension, "phy") || StrEqual(fileExtension, "vtx") || StrEqual(fileExtension, "vvd"))
 	{
 		CheckDownload(path);
 		CheckPrecache(path, "model");
 	}
-	else if(StrEqual(fileExtension, "vmt") || StrEqual(fileExtension, "vtf") || StrEqual(fileExtension, "png") || StrEqual(fileExtension, "svg"))
+	else if (StrEqual(fileExtension, "vmt") || StrEqual(fileExtension, "vtf") || StrEqual(fileExtension, "png") || StrEqual(fileExtension, "svg"))
 	{
 		CheckDownload(path);
 		CheckPrecache(path, "materials");
 	}
-	else if(StrEqual(fileExtension, "mp3") || StrEqual(fileExtension, "wav") || StrEqual(fileExtension, "m4a"))
+	else if (StrEqual(fileExtension, "mp3") || StrEqual(fileExtension, "wav") || StrEqual(fileExtension, "m4a"))
 	{
 		CheckDownload(path);
 		CheckPrecache(path, "sound");
 	}
-	else if(StrEqual(fileExtension, "bsp") || StrEqual(fileExtension, "nav") || StrEqual(fileExtension, "ani"))
+	else if (StrEqual(fileExtension, "bsp") || StrEqual(fileExtension, "nav") || StrEqual(fileExtension, "ani"))
 	{
 		CheckDownload(path);
 	}
-	else if(StrEqual(fileExtension, "pcf"))
+	else if (StrEqual(fileExtension, "pcf"))
 	{
 		CheckDownload(path);
 		CheckPrecache(path, "generic");
@@ -154,7 +157,7 @@ void PrepareFile(const char[] path)
 bool GetFileExtension(const char[] filepath, char[] filetype, int length)
 {
 	int loc = FindCharInString(filepath, '.', true);
-	if(loc == -1)
+	if (loc == -1)
 	{
 		filetype[0] = '\0';
 		return false;
@@ -165,7 +168,7 @@ bool GetFileExtension(const char[] filepath, char[] filetype, int length)
 
 void CheckDownload(const char[] path)
 {
-	if(downloads)
+	if (downloads)
 	{
 		AddFileToDownloadsTable(path);
 		PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to the downloads table", path);
@@ -174,27 +177,27 @@ void CheckDownload(const char[] path)
 
 void CheckPrecache(const char[] file, const char[] precacheType)
 {
-	if(precache)
+	if (precache)
 	{
-		if(StrEqual(precacheType, "model"))
+		if (StrEqual(precacheType, "model"))
 		{
 			PrecacheModel(file, true);
 			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to models precache table", file);
 		}
-		else if(StrEqual(precacheType, "materials"))
+		else if (StrEqual(precacheType, "materials"))
 		{
 			PrecacheDecal(file, true);
 			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to materials/decal precache table", file);
 		}
-		else if(StrEqual(precacheType, "sound"))
+		else if (StrEqual(precacheType, "sound"))
 		{
 			PrecacheSound(file, true);
 			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to sound precache table", file);
 		}
-		else if(StrEqual(precacheType, "generic"))
+		else if (StrEqual(precacheType, "generic"))
 		{
 			PrecacheGeneric(file, true);
 			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to generic precache table", file);
 		}
 	}
-}
+} 
