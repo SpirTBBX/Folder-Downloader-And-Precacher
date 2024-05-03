@@ -191,7 +191,10 @@ void CheckPrecache(const char[] file, const char[] precacheType)
 		}
 		else if (StrEqual(precacheType, "sound"))
 		{
-			PrecacheSound(file, true);
+			char snd[PLATFORM_MAX_PATH];
+			strcopy(snd, sizeof(snd), file);
+			ReplaceString(snd, sizeof(snd), "sound/", "");
+			PrecacheSound(snd, true);
 			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to sound precache table", file);
 		}
 		else if (StrEqual(precacheType, "generic"))
@@ -200,4 +203,4 @@ void CheckPrecache(const char[] file, const char[] precacheType)
 			PrintToServer("[SpirT - DL PRECACHE] File '%s' was added to generic precache table", file);
 		}
 	}
-} 
+}
